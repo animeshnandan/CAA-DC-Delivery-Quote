@@ -1,19 +1,13 @@
-# app.py
-# Streamlit Delivery Quote Finder (no upload, no manual inputs, no buttons, no county)
-# Run:
-#   pip install streamlit pandas openpyxl
-#   streamlit run app.py
+# app.py (fixes: remove empty load_xlsx; fix partner link f-string; tiny path check polish)
 
-import os
-import re
+import os, re
 from typing import List, Optional
-
 import pandas as pd
 import streamlit as st
+from pathlib import Path
 
-# -------------------------
-# Config
-# -------------------------
+APP_DIR = Path(__file__).resolve().parent
+
 st.set_page_config(page_title="CAA DC Delivery Quote", page_icon="🚚", layout="centered")
 
 PARTNER_LINK = "https://your-partner-link.example.com"   # update if needed
@@ -23,9 +17,6 @@ DEFAULT_XLSX_PATH = APP_DIR / "Delivery Sheet.xlsx"
 EXPECTED_PRICES = {100, 125, 150, 175}
 REQUIRED_COLUMNS = ["zipcode", "city", "state"]
 
-# -------------------------
-# Helpers
-# -------------------------
 def _sheet_to_price(sheet_name: str) -> Optional[int]:
     m = re.search(r"(\d+)", sheet_name.replace(",", ""))
     return int(m.group(1)) if m else None
@@ -85,12 +76,10 @@ def lookup_by_city_state(df: pd.DataFrame, city: str, state: str) -> pd.DataFram
 def format_city(city: str) -> str:
     return city.title()
 
-# -------------------------
-# UI
-# -------------------------
+# ------------------------- UI -------------------------
 st.title("🚚 CAA DC Delivery Quote")
 
-if not os.path.exists(DEFAULT_XLSX_PATH):
+if not DEFAULT_XLSX_PATH.exists():
     st.error(f"Pricing file not found at:\n`{DEFAULT_XLSX_PATH}`\n\nPlease place the Excel file there or update the path in the code.")
     st.stop()
 
@@ -102,24 +91,11 @@ if pricing.empty:
     st.stop()
 
 st.markdown("Select **ZIP code** or **City & State** below.")
-
-# Precompute lists
 all_states = sorted(pricing["state"].dropna().unique().tolist())
-
-zip_view = pricing.sort_values(["zipcode"]).drop_duplicates(subset=["zipcode"], keep="first")
-zip_labels = [
-    f"{row.zipcode} — {format_city(row.city)}, {row.state} (tier ${int(row.quote)})"
-    for _, row in zip_view.iterrows()
-]
-label_to_zip = {label: label.split(" — ")[0] for label in zip_labels}
 
 st.divider()
 mode = st.radio("Search by:", ["ZIP code", "City & State"], horizontal=True)
 
-# -------------------------
-# ZIP code mode (NO extra search bar, just the dropdown with typeahead)
-# -------------------------
-# --- ZIP mode: exact 5-digit input, no dropdown ---
 if mode == "ZIP code":
     zip_exact = st.text_input(
         "ZIP",
@@ -142,10 +118,6 @@ if mode == "ZIP code":
             )
     else:
         st.info("Enter a full 5-digit ZIP to see the quote.")
-
-# -------------------------
-# City & State mode (fixed; no buttons, instant on both selections)
-# -------------------------
 else:
     col1, col2 = st.columns(2)
     with col1:
@@ -193,7 +165,7 @@ else:
                 use_container_width=True
             )
     else:
-        st.info("Select a state and city to see quotes. or **[refer to our partner]({PARTNER_LINK})** if you don’t see your area.")
+        st.info(f"Select a state and city to see quotes, or **[refer to our partner]({PARTNER_LINK})** if you don’t see your area.")
 
 st.divider()
 st.markdown(f"Can’t find a location? **[Refer to our partner here]({PARTNER_LINK})**.")
