@@ -17,7 +17,7 @@ import streamlit as st
 st.set_page_config(page_title="CAA DC Delivery Quote", page_icon="🚚", layout="centered")
 
 PARTNER_LINK = "https://your-partner-link.example.com"   # update if needed
-DEFAULT_XLSX_PATH = "/Users/animesh/Downloads/Delivery Sheet.xlsx"
+DEFAULT_XLSX_PATH = APP_DIR / "Delivery Sheet.xlsx"
 
 # Accept any sheet whose name contains these numbers (handles $125, "125", etc.)
 EXPECTED_PRICES = {100, 125, 150, 175}
