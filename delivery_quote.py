@@ -14,7 +14,7 @@ PARTNER_LINK = "https://your-partner-link.example.com"   # update if needed
 DEFAULT_XLSX_PATH = APP_DIR / "Delivery Sheet.xlsx"
 
 # Accept any sheet whose name contains these numbers (handles $125, "125", etc.)
-EXPECTED_PRICES = {100, 125, 150, 175}
+EXPECTED_PRICES = {125, 150, 175}
 REQUIRED_COLUMNS = ["zipcode", "city", "state"]
 
 def _sheet_to_price(sheet_name: str) -> Optional[int]:
@@ -87,7 +87,7 @@ with st.spinner("Reading and indexing pricing..."):
     pricing = load_pricing(DEFAULT_XLSX_PATH)
 
 if pricing.empty:
-    st.error("No pricing found. Check sheet names ($100, $125, $150, $175) and required columns (zipcode, city, state).")
+    st.error("No pricing found. Check sheet names ($125, $150, $175) and required columns (zipcode, city, state).")
     st.stop()
 
 st.markdown("Select **ZIP code** or **City & State** below.")
