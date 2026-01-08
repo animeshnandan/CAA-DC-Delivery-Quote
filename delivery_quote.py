@@ -8,7 +8,7 @@ from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parent
 
-st.set_page_config(page_title="CAA Pickup Quote", page_icon="🚚", layout="centered")
+st.set_page_config(page_title="CAA DC Delivery Quote", page_icon="🚚", layout="centered")
 
 PARTNER_LINK = "https://your-partner-link.example.com"   # update if needed
 DEFAULT_XLSX_PATH = APP_DIR / "Delivery Sheet.xlsx"
@@ -77,7 +77,7 @@ def format_city(city: str) -> str:
     return city.title()
 
 # ------------------------- UI -------------------------
-st.title("🚚 CAA Pickup Quote")
+st.title("🚚 CAA DC Delivery Quote")
 
 if not DEFAULT_XLSX_PATH.exists():
     st.error(f"Pricing file not found at:\n`{DEFAULT_XLSX_PATH}`\n\nPlease place the Excel file there or update the path in the code.")
