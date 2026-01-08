@@ -4,13 +4,9 @@
 # - City/State search uses 🔍 Search button (city updates immediately after state selection)
 # - Search history shown (deduped: repeat searches update/move existing entry)
 # - Clear history buttons only
-#
-# Run:
-#   pip install streamlit pandas openpyxl
-#   streamlit run app.py
 
-import os
 import re
+from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 
 import pandas as pd
@@ -21,7 +17,10 @@ import streamlit as st
 # -------------------------
 st.set_page_config(page_title="CAA DC Delivery Quote", page_icon="🚚", layout="centered")
 
+APP_DIR = Path(__file__).resolve().parent
 PARTNER_LINK = "https://your-partner-link.example.com"
+
+# Put "Delivery Sheet.xlsx" in the same repo folder as app.py (or adjust path here)
 DEFAULT_XLSX_PATH = APP_DIR / "Delivery Sheet.xlsx"
 
 EXPECTED_PRICES = {125, 150, 175}
@@ -81,16 +80,12 @@ def lookup_by_zip(df: pd.DataFrame, zipcode: str) -> pd.DataFrame:
     return df.loc[df["zipcode"] == zipcode]
 
 def lookup_by_city_state(df: pd.DataFrame, city: str, state: str) -> pd.DataFrame:
-    # pricing stores upper-case
     return df.loc[(df["city"] == city.upper()) & (df["state"] == state.upper())]
 
 def format_city(city: str) -> str:
     return city.title()
 
 def upsert_history(history: List[Dict[str, Any]], key: Tuple[Any, ...], record: Dict[str, Any], max_len: int = 25):
-    """
-    Deduped history: if key already exists, remove old entry and insert updated record at top.
-    """
     idx = None
     for i, item in enumerate(history):
         if item.get("_key") == key:
@@ -102,19 +97,17 @@ def upsert_history(history: List[Dict[str, Any]], key: Tuple[Any, ...], record: 
     record2 = dict(record)
     record2["_key"] = key
     history.insert(0, record2)
-
-    del history[max_len:]  # truncate in-place
+    del history[max_len:]
 
 # -------------------------
 # Session State
 # -------------------------
 if "zip_history" not in st.session_state:
-    st.session_state.zip_history: List[Dict[str, Any]] = []
+    st.session_state.zip_history = []
 
 if "cs_history" not in st.session_state:
-    st.session_state.cs_history: List[Dict[str, Any]] = []
+    st.session_state.cs_history = []
 
-# Keep current selectors in session_state so the City dropdown updates immediately
 st.session_state.setdefault("cs_state", None)
 st.session_state.setdefault("cs_city", None)
 
@@ -123,11 +116,12 @@ st.session_state.setdefault("cs_city", None)
 # -------------------------
 st.title("🚚 CAA DC Delivery Quote")
 
-if not os.path.exists(DEFAULT_XLSX_PATH):
-    st.error(f"Pricing file not found:\n`{DEFAULT_XLSX_PATH}`")
+if not DEFAULT_XLSX_PATH.exists():
+    st.error(f"Pricing file not found:\n`{DEFAULT_XLSX_PATH}`\n\n"
+             f"Tip: commit **Delivery Sheet.xlsx** to the repo (same folder as app.py).")
     st.stop()
 
-pricing = load_pricing(DEFAULT_XLSX_PATH)
+pricing = load_pricing(str(DEFAULT_XLSX_PATH))
 
 if pricing.empty:
     st.error("No pricing found. Check Excel sheet names and columns.")
@@ -193,7 +187,7 @@ if mode == "ZIP code":
             st.rerun()
 
 # -------------------------
-# City & State mode (CITY UPDATES IMMEDIATELY AFTER STATE SELECTION)
+# City & State mode
 # -------------------------
 else:
     col1, col2 = st.columns(2)
@@ -208,7 +202,6 @@ else:
             key="cs_state",
         )
 
-    # Build city options based on selected state (this now updates immediately on change)
     if sel_state:
         cities_for_state_raw = (
             pricing.loc[pricing["state"] == sel_state, "city"]
@@ -220,7 +213,6 @@ else:
     else:
         city_options = []
 
-    # If state changed and previously selected city isn't in new list, clear city selection
     if st.session_state.get("cs_city") and st.session_state["cs_city"] not in city_options:
         st.session_state["cs_city"] = None
 
