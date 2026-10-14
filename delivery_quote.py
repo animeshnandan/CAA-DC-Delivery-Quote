@@ -23,8 +23,8 @@ PARTNER_LINK = "https://your-partner-link.example.com"
 # Put "Delivery Sheet.xlsx" in the same repo folder as app.py (or adjust path here)
 DEFAULT_XLSX_PATH = APP_DIR / "Delivery Sheet.xlsx"
 
-EXPECTED_PRICES = {125, 150, 175}
 REQUIRED_COLUMNS = ["zipcode", "city", "state"]
+PRICE_COLUMN = "delivery"  # single-sheet layout: Zipcode | City | State | Delivery
 
 # -------------------------
 # Helpers
@@ -33,14 +33,13 @@ def _sheet_to_price(sheet_name: str) -> Optional[int]:
     m = re.search(r"(\d+)", sheet_name.replace(",", ""))
     return int(m.group(1)) if m else None
 
-def _cleanframe(df: pd.DataFrame, price: int) -> pd.DataFrame:
-    cols_lower = {c.lower(): c for c in df.columns}
-    missing = [c for c in REQUIRED_COLUMNS if c not in cols_lower]
+def _cleanframe(df: pd.DataFrame, price: Optional[int] = None) -> pd.DataFrame:
+    df = df.rename(columns={c: str(c).strip().lower() for c in df.columns})
+    missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
-    df2 = df.rename(columns={v: k for k, v in cols_lower.items()})
-    out = df2.copy()
+    out = df.copy()
 
     out["zipcode"] = (
         out["zipcode"].astype(str).str.strip()
@@ -49,7 +48,18 @@ def _cleanframe(df: pd.DataFrame, price: int) -> pd.DataFrame:
     )
     out["city"] = out["city"].astype(str).str.strip().str.upper()
     out["state"] = out["state"].astype(str).str.strip().str.upper()
-    out["quote"] = int(price)
+    if PRICE_COLUMN in out.columns:
+        out["quote"] = pd.to_numeric(
+            out[PRICE_COLUMN].astype(str).str.replace(r"[^\d.]", "", regex=True),
+            errors="coerce",
+        )
+    elif price is not None:
+        out["quote"] = price
+    else:
+        raise ValueError(f"Missing '{PRICE_COLUMN}' column and no price in sheet name")
+
+    out = out.dropna(subset=["quote"])
+    out["quote"] = out["quote"].astype(int)
 
     return out[["zipcode", "city", "state", "quote"]]
 
@@ -59,9 +69,14 @@ def load_pricing(xlsx_file: str) -> pd.DataFrame:
     frames: List[pd.DataFrame] = []
 
     for sheet in xls.sheet_names:
+        df = pd.read_excel(xls, sheet_name=sheet, dtype=str)
+        cols = {str(c).strip().lower() for c in df.columns}
+        if not set(REQUIRED_COLUMNS) <= cols:
+            continue  # skip notes/blank sheets
         price = _sheet_to_price(sheet)
-        if price in EXPECTED_PRICES:
-            df = pd.read_excel(xls, sheet_name=sheet, dtype=str)
+        # New layout: price comes from the Delivery column.
+        # Legacy layout: one sheet per price tier (e.g. "150").
+        if PRICE_COLUMN in cols or price is not None:
             frames.append(_cleanframe(df, price))
 
     if not frames:
